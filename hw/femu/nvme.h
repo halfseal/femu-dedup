@@ -18,6 +18,11 @@
 #include "nand/nand.h"
 #include "timing-model/timing.h"
 
+
+#ifndef CUR_HASH_SIZE
+#define CUR_HASH_SIZE 160
+#endif
+
 #define NVME_ID_NS_LBADS(ns)                                                  \
     ((ns)->id_ns.lbaf[NVME_ID_NS_FLBAS_INDEX((ns)->id_ns.flbas)].lbads)
 

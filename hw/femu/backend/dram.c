@@ -86,7 +86,7 @@ int hashing_backend_rw(SsdDramBackend *b, QEMUSGList *qsg, uint64_t *lbal, bool 
     qsg->is_written = 987654321;
 
     // should change this to what you used
-    qsg->numbit = 256;  // sha256
+    qsg->numbit = CUR_HASH_SIZE;  // sha256
 
     qsg->hash_array = (unsigned char **)malloc(num_pages * sizeof(unsigned char *));
     qsg->hash_len_array = (unsigned int *)malloc(num_pages * sizeof(unsigned int));
@@ -98,7 +98,7 @@ int hashing_backend_rw(SsdDramBackend *b, QEMUSGList *qsg, uint64_t *lbal, bool 
     if (is_write) {
         mdctx = EVP_MD_CTX_new();
         // should change this to what you used
-        if (EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL) != 1) {
+        if (EVP_DigestInit_ex(mdctx, EVP_sha1(), NULL) != 1) {
             femu_err("EVP_DigestInit_ex error\n");
             EVP_MD_CTX_free(mdctx);
             return -1;

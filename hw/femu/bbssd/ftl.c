@@ -39,6 +39,75 @@ static inline void set_rmap_ent(struct ssd *ssd, uint64_t lpn, struct ppa *ppa) 
     ssd->rmap[pgidx] = lpn;
 }
 
+struct bucket segments[256];
+
+static struct ppa find(struct ssd *ssd, unsigned char *hash, unsigned int len) {
+    uint8_t hash_value = hash[len - 1];
+    struct bucket *cur_bucket = &segments[hash_value];
+
+    int low = 0;
+    int high = cur_bucket->entry_cnt - 1;
+
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        struct bucket_entry *entry = &cur_bucket->entries[mid];
+
+        int cmp = memcmp(entry->fingerprint, (char *)hash, len);
+
+        if (cmp == 0) {
+            // printf("Found entry with PPA: %lu\n", entry->ppa.ppa);
+            if (entry->rc < 255) entry->rc++;
+            // printf("MYPRINT| hash found. hash_value:%d, pos:%d, rc:%d\n", hash_value, mid, entry->rc);
+            return entry->ppa;
+        } else if (cmp < 0) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    struct ppa ret;
+    ret.ppa = UNMAPPED_PPA;
+    return ret;
+}
+
+static void push(struct ssd *ssd, unsigned char *hash, unsigned int len, struct ppa ppa) {
+    uint8_t hash_value = hash[len - 1];
+    struct bucket *cur_bucket = &segments[hash_value];
+
+    int zero_index = -1;
+    for (int i = 0; i < cur_bucket->entry_cnt; i++) {
+        if (cur_bucket->entries[i].rc == 0) {
+            zero_index = i;
+            break;
+        }
+    }
+
+    if (zero_index == -1 || cur_bucket->entry_cnt == cur_bucket->bucket_size) {
+        // printf("No available space with rc == 0. Skipping insertion.\n");
+        return;
+    }
+
+    int move_index = zero_index;
+    if (zero_index > 0 && memcmp(hash, cur_bucket->entries[zero_index - 1].fingerprint, len) < 0) {
+        while (move_index > 0 && memcmp(hash, cur_bucket->entries[move_index - 1].fingerprint, len) < 0) {
+            cur_bucket->entries[move_index] = cur_bucket->entries[move_index - 1];
+            move_index--;
+        }
+    } else if (zero_index < cur_bucket->entry_cnt - 1 && memcmp(hash, cur_bucket->entries[zero_index + 1].fingerprint, len) > 0) {
+        while (move_index < cur_bucket->entry_cnt - 1 && memcmp(hash, cur_bucket->entries[move_index + 1].fingerprint, len) > 0) {
+            cur_bucket->entries[move_index] = cur_bucket->entries[move_index + 1];
+            move_index++;
+        }
+    }
+    struct bucket_entry *new_entry = &cur_bucket->entries[move_index];
+    memcpy(new_entry->fingerprint, hash, len);
+    new_entry->ppa = ppa;
+    new_entry->rc = 0;
+    cur_bucket->entry_cnt++;
+    // printf("MYPRINT| hash inserted. hash_value:%d, pos:%d\n", hash_value, move_index);
+}
+
 static inline int victim_line_cmp_pri(pqueue_pri_t next, pqueue_pri_t curr) { return (next > curr); }
 
 static inline pqueue_pri_t victim_line_get_pri(void *a) { return ((struct line *)a)->vpc; }
@@ -309,6 +378,9 @@ static void ssd_init_rmap(struct ssd *ssd) {
 }
 
 void ssd_init(FemuCtrl *n) {
+    for (int i = 0; i < 256; i++) {
+        segments[i].bucket_size = 4096 / ((CUR_HASH_SIZE + 40 + 7) / 8);
+    }
     struct ssd *ssd = n->ssd;
     struct ssdparams *spp = &ssd->sp;
 
@@ -753,25 +825,38 @@ static uint64_t ssd_write(struct ssd *ssd, NvmeRequest *req) {
             set_rmap_ent(ssd, INVALID_LPN, &ppa);
         }
 
-        /* new write */
-        ppa = get_new_page(ssd);
-        /* update maptbl */
-        set_maptbl_ent(ssd, lpn, &ppa);
-        /* update rmap */
-        set_rmap_ent(ssd, lpn, &ppa);
+        // printf("MYPRINT| hash: Original Data (length: %u)\n", req->qsg.hash_len_array[lpn - start_lpn]);
+        // for (size_t i = 0; i < req->qsg.hash_len_array[lpn - start_lpn]; i++) {
+        //     printf("%02x", ((unsigned char *)req->qsg.hash_array[lpn - start_lpn])[i]);  // hex format으로 출력
+        // }
+        // printf("\n");
 
-        mark_page_valid(ssd, &ppa);
+        ppa = find(ssd, req->qsg.hash_array[lpn - start_lpn], req->qsg.hash_len_array[lpn - start_lpn]);
 
-        /* need to advance the write pointer here */
-        ssd_advance_write_pointer(ssd);
+        if (!(ppa.ppa == UNMAPPED_PPA)) {
+            set_maptbl_ent(ssd, lpn, &ppa);
+        } else {
+            /* new write */
+            ppa = get_new_page(ssd);
+            /* update maptbl */
+            set_maptbl_ent(ssd, lpn, &ppa);
+            /* update rmap */
+            set_rmap_ent(ssd, lpn, &ppa);
 
-        struct nand_cmd swr;
-        swr.type = USER_IO;
-        swr.cmd = NAND_WRITE;
-        swr.stime = req->stime;
-        /* get latency statistics */
-        curlat = ssd_advance_status(ssd, &ppa, &swr);
-        maxlat = (curlat > maxlat) ? curlat : maxlat;
+            mark_page_valid(ssd, &ppa);
+
+            /* need to advance the write pointer here */
+            ssd_advance_write_pointer(ssd);
+
+            struct nand_cmd swr;
+            swr.type = USER_IO;
+            swr.cmd = NAND_WRITE;
+            swr.stime = req->stime;
+            /* get latency statistics */
+            curlat = ssd_advance_status(ssd, &ppa, &swr);
+            maxlat = (curlat > maxlat) ? curlat : maxlat;
+            push(ssd, req->qsg.hash_array[lpn - start_lpn], req->qsg.hash_len_array[lpn - start_lpn], ppa);
+        }
     }
 
     qemu_sglist_destroy(&req->qsg);

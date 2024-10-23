@@ -158,12 +158,11 @@ struct ssdparams {
 
 struct bucket_entry {
     char fingerprint[EVP_MAX_MD_SIZE];
-    uint64_t ppa;
+    struct ppa ppa;
     uint8_t rc;
 };
 
 struct bucket {
-    int fingerprint_bit_size;
     int entry_cnt;
     int bucket_size;  // size should be 4096 / ((finger_print_size + 40 + 7) / 8)
     struct bucket_entry entries[256];
