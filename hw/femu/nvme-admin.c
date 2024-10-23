@@ -40,6 +40,7 @@ static const uint32_t nvme_cse_acs[256] = {
     [NVME_ADM_CMD_SET_FEATURES]     = NVME_CMD_EFF_CSUPP,
     [NVME_ADM_CMD_GET_FEATURES]     = NVME_CMD_EFF_CSUPP,
     [NVME_ADM_CMD_ASYNC_EV_REQ]     = NVME_CMD_EFF_CSUPP,
+    [NVME_ADM_CMD_WRITE_AMPLIFICATION_LOG]  = NVME_CMD_EFF_CSUPP,
 };
 
 //static const uint32_t nvme_cse_iocs_none[256];
@@ -1082,6 +1083,9 @@ static uint16_t nvme_admin_cmd(FemuCtrl *n, NvmeCmd *cmd, NvmeCqe *cqe)
     case NVME_ADM_CMD_SECURITY_SEND:
     case NVME_ADM_CMD_SECURITY_RECV:
         return NVME_INVALID_OPCODE | NVME_DNR;
+    case NVME_ADM_CMD_WRITE_AMPLIFICATION_LOG:
+        nvme_write_amplification(n, cmd);
+        return 0;
     default:
         if (n->ext_ops.admin_cmd) {
             return n->ext_ops.admin_cmd(n, cmd);

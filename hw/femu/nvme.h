@@ -328,6 +328,7 @@ enum NvmeAdminCommands {
     NVME_ADM_CMD_SET_DB_MEMORY  = 0x7c,
     NVME_ADM_CMD_FEMU_DEBUG     = 0xee,
     NVME_ADM_CMD_FEMU_FLIP      = 0xef,
+    NVME_ADM_CMD_WRITE_AMPLIFICATION_LOG = 0xf0,
 };
 
 enum NvmeIoCommands {
@@ -1414,6 +1415,8 @@ static inline bool ZNSSD(FemuCtrl *n)
 {
     return (n->femu_mode == FEMU_ZNSSD_MODE);
 }
+
+void nvme_write_amplification(FemuCtrl *n, NvmeCmd *cmd);
 
 /* Basic NVMe Queue Pair operation APIs from nvme-util.c */
 int nvme_check_sqid(FemuCtrl *n, uint16_t sqid);
