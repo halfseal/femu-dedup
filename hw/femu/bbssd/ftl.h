@@ -1,14 +1,15 @@
 #ifndef __FEMU_FTL_H
 #define __FEMU_FTL_H
+#include <openssl/evp.h>
 
 #include "../nvme.h"
 
-#define INVALID_PPA     (~(0ULL))
-#define INVALID_LPN     (~(0ULL))
-#define UNMAPPED_PPA    (~(0ULL))
+#define INVALID_PPA (~(0ULL))
+#define INVALID_LPN (~(0ULL))
+#define UNMAPPED_PPA (~(0ULL))
 
 enum {
-    NAND_READ =  0,
+    NAND_READ = 0,
     NAND_WRITE = 1,
     NAND_ERASE = 2,
 
@@ -44,24 +45,23 @@ enum {
     FEMU_DISABLE_LOG = 7,
 };
 
-
-#define BLK_BITS    (16)
-#define PG_BITS     (16)
-#define SEC_BITS    (8)
-#define PL_BITS     (8)
-#define LUN_BITS    (8)
-#define CH_BITS     (7)
+#define BLK_BITS (16)
+#define PG_BITS (16)
+#define SEC_BITS (8)
+#define PL_BITS (8)
+#define LUN_BITS (8)
+#define CH_BITS (7)
 
 /* describe a physical page addr */
 struct ppa {
     union {
         struct {
             uint64_t blk : BLK_BITS;
-            uint64_t pg  : PG_BITS;
+            uint64_t pg : PG_BITS;
             uint64_t sec : SEC_BITS;
-            uint64_t pl  : PL_BITS;
+            uint64_t pl : PL_BITS;
             uint64_t lun : LUN_BITS;
-            uint64_t ch  : CH_BITS;
+            uint64_t ch : CH_BITS;
             uint64_t rsv : 1;
         } g;
 
@@ -108,20 +108,20 @@ struct ssd_channel {
 };
 
 struct ssdparams {
-    int secsz;        /* sector size in bytes */
-    int secs_per_pg;  /* # of sectors per page */
-    int pgs_per_blk;  /* # of NAND pages per block */
-    int blks_per_pl;  /* # of blocks per plane */
-    int pls_per_lun;  /* # of planes per LUN (Die) */
-    int luns_per_ch;  /* # of LUNs per channel */
-    int nchs;         /* # of channels in the SSD */
+    int secsz;       /* sector size in bytes */
+    int secs_per_pg; /* # of sectors per page */
+    int pgs_per_blk; /* # of NAND pages per block */
+    int blks_per_pl; /* # of blocks per plane */
+    int pls_per_lun; /* # of planes per LUN (Die) */
+    int luns_per_ch; /* # of LUNs per channel */
+    int nchs;        /* # of channels in the SSD */
 
-    int pg_rd_lat;    /* NAND page read latency in nanoseconds */
-    int pg_wr_lat;    /* NAND page program latency in nanoseconds */
-    int blk_er_lat;   /* NAND block erase latency in nanoseconds */
-    int ch_xfer_lat;  /* channel transfer latency for one page in nanoseconds
-                       * this defines the channel bandwith
-                       */
+    int pg_rd_lat;   /* NAND page read latency in nanoseconds */
+    int pg_wr_lat;   /* NAND page program latency in nanoseconds */
+    int blk_er_lat;  /* NAND block erase latency in nanoseconds */
+    int ch_xfer_lat; /* channel transfer latency for one page in nanoseconds
+                      * this defines the channel bandwith
+                      */
 
     double gc_thres_pcent;
     int gc_thres_lines;
@@ -136,10 +136,10 @@ struct ssdparams {
     int secs_per_ch;  /* # of sectors per channel */
     int tt_secs;      /* # of sectors in the SSD */
 
-    int pgs_per_pl;   /* # of pages per plane */
-    int pgs_per_lun;  /* # of pages per LUN (Die) */
-    int pgs_per_ch;   /* # of pages per channel */
-    int tt_pgs;       /* total # of pages in the SSD */
+    int pgs_per_pl;  /* # of pages per plane */
+    int pgs_per_lun; /* # of pages per LUN (Die) */
+    int pgs_per_ch;  /* # of pages per channel */
+    int tt_pgs;      /* total # of pages in the SSD */
 
     int blks_per_lun; /* # of blocks per LUN */
     int blks_per_ch;  /* # of blocks per channel */
@@ -150,19 +150,32 @@ struct ssdparams {
     int blks_per_line;
     int tt_lines;
 
-    int pls_per_ch;   /* # of planes per channel */
-    int tt_pls;       /* total # of planes in the SSD */
+    int pls_per_ch; /* # of planes per channel */
+    int tt_pls;     /* total # of planes in the SSD */
 
-    int tt_luns;      /* total # of LUNs in the SSD */
+    int tt_luns; /* total # of LUNs in the SSD */
+};
+
+struct bucket_entry {
+    char fingerprint[EVP_MAX_MD_SIZE];
+    uint64_t ppa;
+    uint8_t rc;
+};
+
+struct bucket {
+    int fingerprint_bit_size;
+    int entry_cnt;
+    int bucket_size;  // size should be 4096 / ((finger_print_size + 40 + 7) / 8)
+    struct bucket_entry entries[256];
 };
 
 typedef struct line {
-    int id;  /* line id, the same as corresponding block id */
-    int ipc; /* invalid page count in this line */
-    int vpc; /* valid page count in this line */
+    int id;                   /* line id, the same as corresponding block id */
+    int ipc;                  /* invalid page count in this line */
+    int vpc;                  /* valid page count in this line */
     QTAILQ_ENTRY(line) entry; /* in either {free,victim,full} list */
     /* position in the priority queue for victim lines */
-    size_t                  pos;
+    size_t pos;
 } line;
 
 /* wp: record next write addr */
@@ -180,7 +193,7 @@ struct line_mgmt {
     /* free line list, we only need to maintain a list of blk numbers */
     QTAILQ_HEAD(free_line_list, line) free_line_list;
     pqueue_t *victim_line_pq;
-    //QTAILQ_HEAD(victim_line_list, line) victim_line_list;
+    // QTAILQ_HEAD(victim_line_list, line) victim_line_list;
     QTAILQ_HEAD(full_line_list, line) full_line_list;
     int tt_lines;
     int free_line_cnt;
@@ -216,19 +229,25 @@ struct ssd {
 void ssd_init(FemuCtrl *n);
 
 #ifdef FEMU_DEBUG_FTL
-#define ftl_debug(fmt, ...) \
-    do { printf("[FEMU] FTL-Dbg: " fmt, ## __VA_ARGS__); } while (0)
+#define ftl_debug(fmt, ...)                            \
+    do {                                               \
+        printf("[FEMU] FTL-Dbg: " fmt, ##__VA_ARGS__); \
+    } while (0)
 #else
 #define ftl_debug(fmt, ...) \
-    do { } while (0)
+    do {                    \
+    } while (0)
 #endif
 
-#define ftl_err(fmt, ...) \
-    do { fprintf(stderr, "[FEMU] FTL-Err: " fmt, ## __VA_ARGS__); } while (0)
+#define ftl_err(fmt, ...)                                       \
+    do {                                                        \
+        fprintf(stderr, "[FEMU] FTL-Err: " fmt, ##__VA_ARGS__); \
+    } while (0)
 
-#define ftl_log(fmt, ...) \
-    do { printf("[FEMU] FTL-Log: " fmt, ## __VA_ARGS__); } while (0)
-
+#define ftl_log(fmt, ...)                              \
+    do {                                               \
+        printf("[FEMU] FTL-Log: " fmt, ##__VA_ARGS__); \
+    } while (0)
 
 /* FEMU assert() */
 #ifdef FEMU_DEBUG_FTL

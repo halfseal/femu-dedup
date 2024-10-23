@@ -15,6 +15,6 @@ int init_dram_backend(SsdDramBackend **mbe, int64_t nbytes);
 void free_dram_backend(SsdDramBackend *);
 
 int backend_rw(SsdDramBackend *, QEMUSGList *, uint64_t *, bool);
-int hashing_backend_rw(SsdDramBackend *, QEMUSGList *, uint64_t *, bool);
+int hashing_backend_rw(SsdDramBackend *, QEMUSGList *, uint64_t *, bool, uint16_t);
 
 #endif

@@ -41,7 +41,8 @@ struct QEMUSGList {
     dma_addr_t size;
     DeviceState *dev;
     AddressSpace *as;
-    int hash_array_size;
+    int num_pages;
+    int numbit;
     int is_written;
     unsigned char **hash_array;
     unsigned int *hash_len_array;

@@ -58,7 +58,7 @@ void qemu_sglist_destroy(QEMUSGList *qsg)
     g_free(qsg->sg);
 
     if (qsg->is_written == 987654321) {
-        for (int i = 0; i < qsg->hash_array_size; i++) free(qsg->hash_array[i]);
+        for (int i = 0; i < qsg->num_pages; i++) free(qsg->hash_array[i]);
         free(qsg->hash_array);
         free(qsg->hash_len_array);
     }
