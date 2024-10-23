@@ -4,13 +4,9 @@
 
 static void *ftl_thread(void *arg);
 
-static inline bool should_gc(struct ssd *ssd) {
-    return (ssd->lm.free_line_cnt <= ssd->sp.gc_thres_lines);
-}
+static inline bool should_gc(struct ssd *ssd) { return (ssd->lm.free_line_cnt <= ssd->sp.gc_thres_lines); }
 
-static inline bool should_gc_high(struct ssd *ssd) {
-    return (ssd->lm.free_line_cnt <= ssd->sp.gc_thres_lines_high);
-}
+static inline bool should_gc_high(struct ssd *ssd) { return (ssd->lm.free_line_cnt <= ssd->sp.gc_thres_lines_high); }
 
 static inline struct ppa get_maptbl_ent(struct ssd *ssd, uint64_t lpn) { return ssd->maptbl[lpn]; }
 
@@ -689,6 +685,8 @@ static int do_gc(struct ssd *ssd, bool force) {
 }
 
 static uint64_t ssd_read(struct ssd *ssd, NvmeRequest *req) {
+    qemu_sglist_destroy(&req->qsg);  // 이거 불리면 qsg free되면서 sha 접근불가.
+
     struct ssdparams *spp = &ssd->sp;
     uint64_t lba = req->slba;
     int nsecs = req->nlb;
@@ -775,6 +773,8 @@ static uint64_t ssd_write(struct ssd *ssd, NvmeRequest *req) {
         curlat = ssd_advance_status(ssd, &ppa, &swr);
         maxlat = (curlat > maxlat) ? curlat : maxlat;
     }
+
+    qemu_sglist_destroy(&req->qsg);
 
     return maxlat;
 }

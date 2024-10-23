@@ -271,7 +271,7 @@ uint16_t nvme_rw(FemuCtrl *n, NvmeNamespace *ns, NvmeCmd *cmd, NvmeRequest *req)
     req->status = NVME_SUCCESS;
     req->nlb = nlb;
 
-    ret = backend_rw(n->mbe, &req->qsg, &data_offset, req->is_write);
+    ret = hashing_backend_rw(n->mbe, &req->qsg, &data_offset, req->is_write);
     if (!ret) {
         return NVME_SUCCESS;
     }
