@@ -2,6 +2,7 @@
 #define __FEMU_MEM_BACKEND
 
 #include <stdint.h>
+#include "../nvme.h"
 
 /* DRAM backend SSD address space */
 typedef struct SsdDramBackend {
